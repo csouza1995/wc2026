@@ -72,15 +72,28 @@ new class extends Component
                     <stop offset="55%" stop-color="#f59e0b" />
                     <stop offset="100%" stop-color="#92400e" />
                 </linearGradient>
-                <clipPath id="leafClip"><circle cx="16" cy="16" r="16" /></clipPath>
-                <clipPath id="nodeClip"><circle cx="14" cy="14" r="14" /></clipPath>
+                <clipPath id="leafClip"><circle cx="20" cy="20" r="20" /></clipPath>
+                <clipPath id="nodeClip"><circle cx="17" cy="17" r="17" /></clipPath>
             </defs>
 
             <circle cx="400" cy="400" r="220" fill="url(#glow)" />
 
             @foreach ($this->bracket['connectors'] as $connector)
-                <path wire:key="connector-{{ $loop->index }}" d="{{ $connector['path'] }}"
-                    fill="none" stroke="#fbbf24" stroke-opacity="0.5" stroke-width="1.5" />
+                @php
+                    $highlight = fn (bool $isWinningHalf) => $isWinningHalf
+                        ? ['stroke' => $connector['winningColor'], 'opacity' => 1, 'width' => 3.4]
+                        : ['stroke' => '#fbbf24', 'opacity' => 0.45, 'width' => 2.2];
+                    $sideA = $highlight($connector['winningSide'] === 'a');
+                    $sideB = $highlight($connector['winningSide'] === 'b');
+                @endphp
+                <path wire:key="arc-a-{{ $loop->index }}" d="{{ $connector['arcA'] }}" fill="none" stroke-linecap="round"
+                    stroke="{{ $sideA['stroke'] }}" stroke-opacity="{{ $sideA['opacity'] }}" stroke-width="{{ $sideA['width'] }}" />
+                <path wire:key="arc-b-{{ $loop->index }}" d="{{ $connector['arcB'] }}" fill="none" stroke-linecap="round"
+                    stroke="{{ $sideB['stroke'] }}" stroke-opacity="{{ $sideB['opacity'] }}" stroke-width="{{ $sideB['width'] }}" />
+                <path wire:key="line-a-{{ $loop->index }}" d="{{ $connector['lineA'] }}" fill="none" stroke-linecap="round"
+                    stroke="{{ $sideA['stroke'] }}" stroke-opacity="{{ $sideA['opacity'] }}" stroke-width="{{ $sideA['width'] }}" />
+                <path wire:key="line-b-{{ $loop->index }}" d="{{ $connector['lineB'] }}" fill="none" stroke-linecap="round"
+                    stroke="{{ $sideB['stroke'] }}" stroke-opacity="{{ $sideB['opacity'] }}" stroke-width="{{ $sideB['width'] }}" />
             @endforeach
 
             {{-- Trophy, hand-drawn in SVG (no external image / trademarked photo). --}}
@@ -93,24 +106,26 @@ new class extends Component
             </g>
 
             @foreach ($this->bracket['leaves'] as $leaf)
-                <g wire:key="leaf-{{ $loop->index }}" transform="translate({{ $leaf['x'] - 16 }}, {{ $leaf['y'] - 16 }})">
-                    <circle cx="16" cy="16" r="16" fill="#1e293b" />
+                <g wire:key="leaf-{{ $loop->index }}" transform="translate({{ $leaf['x'] - 20 }}, {{ $leaf['y'] - 20 }})">
+                    <circle cx="20" cy="20" r="20" fill="#1e293b" />
                     @if ($leaf['team']?->flag_url)
-                        <image href="{{ $leaf['team']->flag_url }}" x="0" y="0" width="32" height="32"
-                            preserveAspectRatio="xMidYMid slice" clip-path="url(#leafClip)" />
+                        <image href="{{ $leaf['team']->flag_url }}" x="0" y="0" width="40" height="40"
+                            preserveAspectRatio="xMidYMid slice" clip-path="url(#leafClip)"
+                            opacity="{{ $leaf['eliminated'] ? 0.35 : 1 }}" />
                     @endif
-                    <circle cx="16" cy="16" r="16" fill="none" stroke="#475569" stroke-width="1" />
+                    <circle cx="20" cy="20" r="20" fill="none" stroke="#475569" stroke-width="1" />
                 </g>
             @endforeach
 
             @foreach ($this->bracket['nodes'] as $node)
-                <g wire:key="node-{{ $loop->index }}" transform="translate({{ $node['x'] - 14 }}, {{ $node['y'] - 14 }})">
-                    <circle cx="14" cy="14" r="14" fill="#1e293b" />
+                <g wire:key="node-{{ $loop->index }}" transform="translate({{ $node['x'] - 17 }}, {{ $node['y'] - 17 }})">
+                    <circle cx="17" cy="17" r="17" fill="#1e293b" />
                     @if ($node['team']?->flag_url)
-                        <image href="{{ $node['team']->flag_url }}" x="0" y="0" width="28" height="28"
-                            preserveAspectRatio="xMidYMid slice" clip-path="url(#nodeClip)" />
+                        <image href="{{ $node['team']->flag_url }}" x="0" y="0" width="34" height="34"
+                            preserveAspectRatio="xMidYMid slice" clip-path="url(#nodeClip)"
+                            opacity="{{ $node['eliminated'] ? 0.35 : 1 }}" />
                     @endif
-                    <circle cx="14" cy="14" r="14" fill="none" stroke="#fbbf24" stroke-width="1.5" />
+                    <circle cx="17" cy="17" r="17" fill="none" stroke="#475569" stroke-width="1" />
                 </g>
             @endforeach
         </svg>

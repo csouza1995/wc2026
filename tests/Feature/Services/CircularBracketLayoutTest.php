@@ -53,7 +53,9 @@ test('always draws the full 31-connector tree, decided or not', function () {
         ->and($layout['nodes'])->toBeEmpty(); // no winners yet.
 
     foreach ($layout['connectors'] as $connector) {
-        expect($connector['path'])->toContain('A ');
+        expect($connector['arcA'])->toContain('A ')
+            ->and($connector['arcB'])->toContain('A ')
+            ->and($connector['winningSide'])->toBeNull();
     }
 });
 
@@ -61,10 +63,11 @@ test('the final connects straight to the trophy with no extra ring', function ()
     $layout = buildLayout(ro32FixturesForLayout());
 
     $finalConnector = end($layout['connectors']);
-    expect($finalConnector['path'])->toContain('A 0.000000 0.000000');
+    expect($finalConnector['arcA'])->toContain('A 0.000000 0.000000')
+        ->and($finalConnector['arcB'])->toContain('A 0.000000 0.000000');
 });
 
-test('a decided round-of-32 match centers its winner on the junction between the two leaves', function () {
+test('a decided round-of-32 match centers its winner on the junction, flags the winning side and its color', function () {
     $ro32 = ro32FixturesForLayout();
 
     /** @var Fixture $decided */
@@ -76,6 +79,9 @@ test('a decided round-of-32 match centers its winner on the junction between the
     $layout = buildLayout($ro32);
 
     expect($layout['nodes'])->toHaveCount(1);
+    expect($layout['connectors'][0]['winningSide'])->toBe('a')
+        // "Home 0" isn't in the known team-color map, so it falls back to gold.
+        ->and($layout['connectors'][0]['winningColor'])->toBe('#fbbf24');
 
     $node = $layout['nodes'][0];
     $leafHome = $layout['leaves'][0];
@@ -86,6 +92,36 @@ test('a decided round-of-32 match centers its winner on the junction between the
         ->and($node['x'])->not->toBe($leafHome['x'])
         ->and($node['x'])->toBeGreaterThan(min($leafHome['x'], $leafAway['x']))
         ->and($node['x'])->toBeLessThan(max($leafHome['x'], $leafAway['x']));
+});
+
+test('a winner recognized in the team color map is highlighted in its own color', function () {
+    $ro32 = ro32FixturesForLayout();
+
+    /** @var Fixture $decided */
+    $decided = $ro32->first();
+    $decided->status = FixtureStatus::Finished;
+    $decided->home_score = 2;
+    $decided->away_score = 0;
+    $decided->setRelation('homeTeam', teamForLayout(1, 'Canada'));
+
+    $layout = buildLayout($ro32);
+
+    expect($layout['connectors'][0]['winningColor'])->toBe('#FF0000');
+});
+
+test('the losing leaf is flagged eliminated, the winning leaf is not', function () {
+    $ro32 = ro32FixturesForLayout();
+
+    /** @var Fixture $decided */
+    $decided = $ro32->first();
+    $decided->status = FixtureStatus::Finished;
+    $decided->home_score = 2;
+    $decided->away_score = 0;
+
+    $layout = buildLayout($ro32);
+
+    expect($layout['leaves'][0]['eliminated'])->toBeFalse() // home, won
+        ->and($layout['leaves'][1]['eliminated'])->toBeTrue(); // away, lost
 });
 
 test('a winner cascades into the next ring once its next-round match is also finished', function () {
@@ -116,5 +152,12 @@ test('a winner cascades into the next ring once its next-round match is also fin
     expect($layout['nodes'])->toHaveCount(3);
 
     $ro16Node = collect($layout['nodes'])->last();
-    expect($ro16Node['team']->id)->toBe(1);
+    expect($ro16Node['team']->id)->toBe(1)
+        ->and($ro16Node['eliminated'])->toBeFalse();
+
+    // Team 4's ring-1 node (they won RO32) is now flagged eliminated,
+    // since they lost the RO16 match — they stay on the bracket, dimmed,
+    // rather than being erased.
+    $team4RingOneNode = collect($layout['nodes'])->firstWhere('team.id', 4);
+    expect($team4RingOneNode['eliminated'])->toBeTrue();
 });

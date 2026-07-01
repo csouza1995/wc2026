@@ -29,6 +29,10 @@ class CircularBracketLayout
      * feeders — and that midpoint becomes the team's position for the
      * *next* junction too, so a team's flag marches straight toward the
      * trophy each round it survives, rather than sitting off to one side.
+     * A connector's winning side is flagged so it can be drawn more
+     * prominently than the rest of the (still-undecided) tree. A team
+     * that's out is flagged `eliminated` wherever it still appears (its
+     * leaf, and any ring it reached) rather than removed outright.
      *
      * @param  Collection<int, Fixture>  $ro32Fixtures  Exactly 16 fixtures, in bracket order.
      * @param  Collection<int, Fixture>  $ro16Fixtures  Up to 8 fixtures.
@@ -46,6 +50,7 @@ class CircularBracketLayout
         float $leafRadius,
     ): array {
         $slotCount = $ro32Fixtures->count() * 2;
+        $eliminated = $this->eliminatedTeamIds($ro32Fixtures, $ro16Fixtures, $qfFixtures, $sfFixtures);
 
         $leaves = [];
         $nodes = [];
@@ -61,9 +66,9 @@ class CircularBracketLayout
 
                 $leaves[] = [
                     ...$this->cartesian($centerX, $centerY, $leafRadius, $angleRad),
-                    'angle' => rad2deg($angleRad),
                     'team' => $team,
                     'placeholder' => $placeholder,
+                    'eliminated' => $team && isset($eliminated[$team->id]),
                 ];
             }
         }
@@ -78,13 +83,12 @@ class CircularBracketLayout
             $angleA = $leafAngle[$matchIndex * 2];
             $angleB = $leafAngle[$matchIndex * 2 + 1];
             $midAngle = ($angleA + $angleB) / 2;
-
-            $connectors[] = ['path' => $this->pairPath($centerX, $centerY, $leafRadius, $ringRadii[0], $angleA, $angleB)];
-
             $winner = $fixture->winner();
 
+            $connectors[] = $this->connector($centerX, $centerY, $leafRadius, $ringRadii[0], $angleA, $angleB, $this->winningSide($winner, $fixture->homeTeam, $fixture->awayTeam), $winner);
+
             if ($winner) {
-                $nodes[] = [...$this->cartesian($centerX, $centerY, $ringRadii[0], $midAngle), 'team' => $winner];
+                $nodes[] = [...$this->cartesian($centerX, $centerY, $ringRadii[0], $midAngle), 'team' => $winner, 'eliminated' => isset($eliminated[$winner->id])];
             }
 
             $current[$matchIndex] = ['angle' => $midAngle, 'team' => $winner];
@@ -106,12 +110,12 @@ class CircularBracketLayout
                 $b = $current[$keys[$i + 1]];
                 $midAngle = ($a['angle'] + $b['angle']) / 2;
 
-                $connectors[] = ['path' => $this->pairPath($centerX, $centerY, $outerR, $innerR, $a['angle'], $b['angle'])];
-
                 $winner = $this->realWinner($roundFixtures, $a['team'], $b['team']);
 
+                $connectors[] = $this->connector($centerX, $centerY, $outerR, $innerR, $a['angle'], $b['angle'], $this->winningSide($winner, $a['team'], $b['team']), $winner);
+
                 if ($winner) {
-                    $nodes[] = [...$this->cartesian($centerX, $centerY, $innerR, $midAngle), 'team' => $winner];
+                    $nodes[] = [...$this->cartesian($centerX, $centerY, $innerR, $midAngle), 'team' => $winner, 'eliminated' => isset($eliminated[$winner->id])];
                 }
 
                 $next[intdiv($keys[$i], 2)] = ['angle' => $midAngle, 'team' => $winner];
@@ -124,10 +128,56 @@ class CircularBracketLayout
         $remaining = array_values($current);
 
         if (count($remaining) === 2) {
-            $connectors[] = ['path' => $this->pairPath($centerX, $centerY, $ringRadii[3], 0, $remaining[0]['angle'], $remaining[1]['angle'])];
+            $connectors[] = $this->connector($centerX, $centerY, $ringRadii[3], 0, $remaining[0]['angle'], $remaining[1]['angle'], null, null);
         }
 
         return ['leaves' => $leaves, 'nodes' => $nodes, 'connectors' => $connectors];
+    }
+
+    /**
+     * Every team that has lost a decided match, across every round —
+     * used to flag their leaf/nodes as eliminated (dimmed) rather than
+     * removing them, so the bracket keeps showing where they were
+     * knocked out instead of just erasing their run.
+     *
+     * @param  Collection<int, Fixture>  ...$rounds
+     * @return array<int, true>
+     */
+    private function eliminatedTeamIds(Collection ...$rounds): array
+    {
+        $eliminated = [];
+
+        foreach ($rounds as $round) {
+            foreach ($round as $fixture) {
+                $winner = $fixture->winner();
+
+                if (! $winner) {
+                    continue;
+                }
+
+                $loserId = $fixture->home_team_id === $winner->id ? $fixture->away_team_id : $fixture->home_team_id;
+
+                if ($loserId) {
+                    $eliminated[$loserId] = true;
+                }
+            }
+        }
+
+        return $eliminated;
+    }
+
+    /**
+     * Which side of a junction (if either) the real, decided winner sits
+     * on — used to draw that specific radial segment more prominently.
+     */
+    private function winningSide(?Team $winner, ?Team $teamA, ?Team $teamB): ?string
+    {
+        return match (true) {
+            $winner === null => null,
+            $teamA && $teamA->id === $winner->id => 'a',
+            $teamB && $teamB->id === $winner->id => 'b',
+            default => null,
+        };
     }
 
     /**
@@ -153,25 +203,32 @@ class CircularBracketLayout
     /**
      * A radial line from each side down to a shared inner radius, an arc
      * joining them there (the circular equivalent of a bracket's
-     * horizontal bar), then on to the other side. When $innerRadius is 0
-     * both "inner" points collapse onto the center, so the arc disappears
-     * and the two lines simply meet at the trophy.
+     * horizontal bar), then on to the other side. The arc is split in
+     * two at its midpoint — exactly where the winner's flag node sits —
+     * so when there's a decided winner, their line *and* their half of
+     * the arc can be highlighted together as one unbroken path in their
+     * own team color, all the way to the flag. When $innerRadius is 0
+     * both "inner" points collapse onto the center, so the arcs
+     * disappear and the two lines simply meet at the trophy.
+     *
+     * @return array{lineA: string, lineB: string, arcA: string, arcB: string, winningSide: ?string, winningColor: string}
      */
-    private function pairPath(float $centerX, float $centerY, float $outerRadius, float $innerRadius, float $angleA, float $angleB): string
+    private function connector(float $centerX, float $centerY, float $outerRadius, float $innerRadius, float $angleA, float $angleB, ?string $winningSide, ?Team $winner): array
     {
         $outerA = $this->cartesian($centerX, $centerY, $outerRadius, $angleA);
         $outerB = $this->cartesian($centerX, $centerY, $outerRadius, $angleB);
         $innerA = $this->cartesian($centerX, $centerY, $innerRadius, $angleA);
         $innerB = $this->cartesian($centerX, $centerY, $innerRadius, $angleB);
+        $innerMid = $this->cartesian($centerX, $centerY, $innerRadius, ($angleA + $angleB) / 2);
 
-        return sprintf(
-            'M %F %F L %F %F A %F %F 0 0 1 %F %F L %F %F',
-            $outerA['x'], $outerA['y'],
-            $innerA['x'], $innerA['y'],
-            $innerRadius, $innerRadius,
-            $innerB['x'], $innerB['y'],
-            $outerB['x'], $outerB['y'],
-        );
+        return [
+            'lineA' => sprintf('M %F %F L %F %F', $outerA['x'], $outerA['y'], $innerA['x'], $innerA['y']),
+            'lineB' => sprintf('M %F %F L %F %F', $outerB['x'], $outerB['y'], $innerB['x'], $innerB['y']),
+            'arcA' => sprintf('M %F %F A %F %F 0 0 1 %F %F', $innerA['x'], $innerA['y'], $innerRadius, $innerRadius, $innerMid['x'], $innerMid['y']),
+            'arcB' => sprintf('M %F %F A %F %F 0 0 1 %F %F', $innerMid['x'], $innerMid['y'], $innerRadius, $innerRadius, $innerB['x'], $innerB['y']),
+            'winningSide' => $winningSide,
+            'winningColor' => TeamColors::for($winner),
+        ];
     }
 
     /**
