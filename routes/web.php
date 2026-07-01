@@ -2,4 +2,7 @@
 
 use Illuminate\Support\Facades\Route;
 
-Route::view('/', 'welcome')->name('home');
+Route::redirect('/', '/jogos');
+
+Route::livewire('/jogos', 'pages::jogos')->name('jogos');
+Route::livewire('/classificacao', 'pages::classificacao')->name('classificacao');
