@@ -2,7 +2,9 @@
 
 namespace App\Providers;
 
+use App\Services\Football\LiveScoreBudget;
 use Carbon\CarbonImmutable;
+use Illuminate\Foundation\DevCommands;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\ServiceProvider;
@@ -15,7 +17,9 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        $this->app->singleton(LiveScoreBudget::class, fn () => new LiveScoreBudget(
+            dailyQuota: (int) config('services.api_football.daily_quota'),
+        ));
     }
 
     /**
@@ -24,6 +28,8 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         $this->configureDefaults();
+
+        DevCommands::artisan('schedule:work', 'scheduler');
     }
 
     /**
