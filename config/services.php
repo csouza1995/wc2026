@@ -35,4 +35,19 @@ return [
         ],
     ],
 
+    'football_data' => [
+        'url' => env('FOOTBALL_DATA_ORG_URL', 'https://api.football-data.org/v4'),
+        'key' => env('FOOTBALL_DATA_ORG_API_KEY'),
+        'competition_code' => env('FOOTBALL_DATA_ORG_COMPETITION_CODE', 'WC'),
+    ],
+
+    'api_football' => [
+        'url' => env('API_FOOTBALL_URL', 'https://v3.football.api-sports.io'),
+        'key' => env('API_FOOTBALL_API_KEY'),
+        'daily_quota' => env('API_FOOTBALL_DAILY_QUOTA', 100),
+        // World Cup league id in api-football's own catalog.
+        'league_id' => env('API_FOOTBALL_LEAGUE_ID', 1),
+        'season' => env('API_FOOTBALL_SEASON', 2026),
+    ],
+
 ];
