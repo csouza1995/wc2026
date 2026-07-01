@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\FixtureRound;
+use App\Enums\FixtureStatus;
 use App\Models\Fixture;
 use App\Models\Group;
 use App\Models\Team;
@@ -66,4 +67,36 @@ test('jogos filter caps selection at 3 teams', function () {
     }
 
     $component->assertSet('selectedTeamIds', $teams->take(3)->pluck('id')->all());
+});
+
+test('jogos ao vivo tag only shows live fixtures', function () {
+    $live = Fixture::factory()->create(['status' => FixtureStatus::Live, 'kickoff_at' => now()]);
+    Fixture::factory()->create(['status' => FixtureStatus::Scheduled, 'kickoff_at' => now()->addDay()]);
+
+    Livewire::test('pages::jogos')
+        ->assertSee($live->homeTeam->name)
+        ->call('toggleLive')
+        ->assertSet('onlyLive', true)
+        ->assertSee($live->homeTeam->name);
+});
+
+test('jogos hoje tag only shows fixtures kicking off today', function () {
+    $today = Fixture::factory()->create(['kickoff_at' => now()]);
+    $tomorrow = Fixture::factory()->create(['kickoff_at' => now()->addDay()]);
+
+    Livewire::test('pages::jogos')
+        ->call('toggleToday')
+        ->assertSet('onlyToday', true)
+        ->assertSee($today->homeTeam->name)
+        ->assertDontSee($tomorrow->homeTeam->name);
+});
+
+test('classificacao tab selection persists in the url', function () {
+    Livewire::test('pages::classificacao')
+        ->call('selectTab', 'eliminatorias')
+        ->assertSet('tab', 'eliminatorias');
+
+    $this->get('/classificacao?tab=eliminatorias')
+        ->assertOk()
+        ->assertSeeLivewire('standings.knockout-bracket');
 });

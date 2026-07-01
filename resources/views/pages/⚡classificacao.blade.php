@@ -1,9 +1,11 @@
 <?php
 
+use Livewire\Attributes\Url;
 use Livewire\Component;
 
 new class extends Component
 {
+    #[Url]
     public string $tab = 'grupos';
 
     public function selectTab(string $tab): void

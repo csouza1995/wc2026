@@ -16,6 +16,13 @@ class CircularBracketLayout
     protected const RINGS = 4;
 
     /**
+     * Radial breathing room, in pixels, left between every pair of
+     * adjacent rings' hover wedges — split evenly (half on each side) so
+     * neither wedge encroaches on its neighbor's own territory.
+     */
+    protected const RING_GAP = 3.0;
+
+    /**
      * Builds the full circular bracket tree — every junction is always
      * drawn, decided or not, since the tree's shape is fixed the moment
      * the 32 leaves are seeded (adjacent leaves always face each other,
@@ -240,33 +247,49 @@ class CircularBracketLayout
     }
 
     /**
-     * The whole wedge (annular sector) this match occupies — used as a
-     * generous hover target and a subtle highlight fill, instead of only
-     * the thin connector line itself. Padded outward a bit past the
-     * leaf/node flags, and angularly out toward the neighboring wedge on
-     * either side — almost touching it, just a sliver of a gap left —
-     * but the inner edge stops exactly at this ring's own radius rather
-     * than reaching past it into the next ring's wedge.
+     * The wedge (annular sector) this match occupies — used as the hover
+     * target and highlight fill, instead of only the thin connector line
+     * itself. Angularly it reaches out toward the neighboring wedge on
+     * either side, almost touching it (see angular pad note below).
      *
-     * The angular pad is a fraction of the wedge's own span rather than a
-     * fixed number of degrees: thanks to the uniform binary halving that
-     * builds every ring, a wedge's own span and its gap to the next
-     * wedge *at that same ring* are always equal, at every ring — so a
-     * fixed fraction scales correctly everywhere without knowing the
-     * ring's absolute angular width. The Final's connector has no
-     * neighbor to reach toward (span is exactly half the circle), so it
-     * gets no angular padding at all.
+     * Radially, a ring's outer edge is the *exact same radius* as the
+     * ring outside it's inner edge — they share a boundary with zero
+     * natural gap. Every wedge (including the outermost, against the
+     * leaves) is inset by half of self::RING_GAP on both its outer and
+     * inner edge, which leaves exactly RING_GAP of breathing room between
+     * every pair of adjacent rings *and* keeps every ring's own radial
+     * height identical — no ring reads as visually "taller" than the
+     * rest. The one edge with no neighbor to protect against is the
+     * innermost connector's inner edge (the Final, $innerRadius === 0),
+     * which stays at dead center rather than leaving a pointless gap
+     * before the trophy.
+     *
+     * The angular pad targets a constant pixel gap (self::ANGULAR_GAP) at
+     * the wedge's outer radius, converted to radians for that radius
+     * (arc-length = radius × angle, so angle = arc-length / radius) —
+     * *not* a fixed fraction of the wedge's own span. A fixed fraction
+     * seems tempting (every ring's span-to-neighbor-gap ratio is equal
+     * thanks to the uniform binary halving that builds every ring), but
+     * inner rings have far wider spans than outer ones, so a fixed
+     * *fraction* balloons into a much wider gap in pixels the further in
+     * you go. Converting from a target pixel width keeps every ring's
+     * gap looking the same regardless of how wide that ring's wedges
+     * are. It's capped at 40% of the wedge's own span so a tiny wedge
+     * can never invert itself. The Final's connector has no neighbor to
+     * reach toward (span is exactly half the circle), so it gets no
+     * angular padding at all.
      */
     private function zonePath(float $centerX, float $centerY, float $outerRadius, float $innerRadius, float $angleA, float $angleB): string
     {
         $span = $angleB - $angleA;
-        $angularPad = $span < M_PI ? $span * 0.45 : 0.0;
+        $angularPad = $span < M_PI ? $span * 0.5 : 0.0;
         $paddedA = $angleA - $angularPad;
         $paddedB = $angleB + $angularPad;
         $largeArc = ($paddedB - $paddedA) > M_PI ? 1 : 0;
 
-        $outerPad = $outerRadius + 22;
-        $innerPad = $innerRadius;
+        $halfGap = self::RING_GAP / 3;
+        $outerPad = $outerRadius - $halfGap;
+        $innerPad = $innerRadius === 0.0 ? 0.0 : $innerRadius + $halfGap;
 
         $outerA = $this->cartesian($centerX, $centerY, $outerPad, $paddedA);
         $outerB = $this->cartesian($centerX, $centerY, $outerPad, $paddedB);

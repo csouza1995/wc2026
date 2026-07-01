@@ -6,6 +6,7 @@ use App\Models\Team;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
 use Livewire\Attributes\Computed;
+use Livewire\Attributes\Url;
 use Livewire\Component;
 
 new class extends Component
@@ -14,8 +15,25 @@ new class extends Component
 
     public string $teamSearch = '';
 
+    #[Url]
+    public bool $onlyLive = false;
+
+    #[Url]
+    public bool $onlyToday = false;
+
     /** @var array<int, int> */
+    #[Url]
     public array $selectedTeamIds = [];
+
+    public function toggleLive(): void
+    {
+        $this->onlyLive = ! $this->onlyLive;
+    }
+
+    public function toggleToday(): void
+    {
+        $this->onlyToday = ! $this->onlyToday;
+    }
 
     public function toggleTeam(int $teamId): void
     {
@@ -73,6 +91,8 @@ new class extends Component
                         ->orWhereIn('away_team_id', $this->selectedTeamIds),
                 ),
             )
+            ->when($this->onlyLive, fn ($query) => $query->where('status', FixtureStatus::Live))
+            ->when($this->onlyToday, fn ($query) => $query->whereDate('kickoff_at', today()))
             ->orderBy('kickoff_at')
             ->get()
             ->groupBy(fn (Fixture $fixture) => $fixture->kickoff_at->toDateString());
@@ -88,15 +108,26 @@ new class extends Component
 
 <div class="mx-auto max-w-4xl px-4 py-8" @if ($this->hasLiveFixtures) wire:poll.15s @endif>
     <div class="mb-6 flex flex-wrap items-center justify-between gap-3">
-        <div class="flex items-center gap-2">
-            @forelse ($this->selectedTeams as $team)
+        <div class="flex flex-wrap items-center gap-2">
+            <button type="button" wire:click="toggleLive"
+                class="flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold transition {{ $onlyLive ? 'bg-emerald-500/20 text-emerald-400 ring-1 ring-emerald-400' : 'bg-slate-800 text-slate-300 hover:bg-slate-700' }}">
+                <span class="relative flex h-1.5 w-1.5">
+                    <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75"></span>
+                    <span class="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
+                </span>
+                Ao vivo
+            </button>
+            <button type="button" wire:click="toggleToday"
+                class="rounded-full px-3 py-1 text-xs font-semibold transition {{ $onlyToday ? 'bg-emerald-500/20 text-emerald-400 ring-1 ring-emerald-400' : 'bg-slate-800 text-slate-300 hover:bg-slate-700' }}">
+                Hoje
+            </button>
+
+            @foreach ($this->selectedTeams as $team)
                 <span wire:key="chip-{{ $team->id }}" class="flex items-center gap-1.5 rounded-full bg-slate-800 py-1 pl-1 pr-3 text-xs text-slate-200">
                     <x-team-flag :team="$team" size="5" />
                     {{ $team->name }}
                 </span>
-            @empty
-                <span class="text-sm text-slate-500">Todos os jogos</span>
-            @endforelse
+            @endforeach
         </div>
 
         <div class="flex items-center gap-2">
@@ -131,7 +162,8 @@ new class extends Component
                                 <span class="text-base font-semibold text-white">{{ $fixture->home_score }} - {{ $fixture->away_score }}</span>
                             @elseif ($fixture->status === FixtureStatus::Live)
                                 <span class="text-base font-semibold text-emerald-400">{{ $fixture->home_score ?? 0 }} - {{ $fixture->away_score ?? 0 }}</span>
-                                <span class="text-[10px] font-semibold uppercase tracking-wide text-emerald-400">
+                                <span class="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide text-emerald-400">
+                                    <x-live-indicator :last-polled-at="$fixture->last_polled_at" />
                                     Ao vivo{{ $fixture->minute ? " · {$fixture->minute}'" : '' }}
                                 </span>
                             @else
@@ -150,7 +182,7 @@ new class extends Component
         </div>
     @empty
         <p class="text-center text-slate-400">
-            {{ count($this->selectedTeamIds) > 0 ? 'Nenhum jogo encontrado para essas seleções.' : 'Nenhuma partida importada ainda.' }}
+            {{ count($this->selectedTeamIds) > 0 || $onlyLive || $onlyToday ? 'Nenhum jogo encontrado para esses filtros.' : 'Nenhuma partida importada ainda.' }}
         </p>
     @endforelse
 
