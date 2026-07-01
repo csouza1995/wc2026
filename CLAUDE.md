@@ -1,3 +1,42 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## Project Status
+
+This is a fresh Laravel + Livewire starter kit (`laravel/blank-livewire-starter-kit`) with no custom application code yet — only the stock `Controller`, `User` model, `AppServiceProvider`, and a single welcome route. Treat architectural decisions as greenfield.
+
+## Commands
+
+```bash
+composer setup        # install deps, create .env, generate key, migrate, npm install+build
+composer dev           # runs `php artisan dev` (server + queue + vite concurrently)
+npm run dev            # vite dev server only
+npm run build           # vite production build
+
+composer lint           # pint --parallel (auto-fixes style)
+composer lint:check     # pint --parallel --test (check only, no fix)
+composer types:check    # phpstan analyse (larastan, level 7)
+composer test           # config:clear + lint:check + types:check + php artisan test (full CI-equivalent gate)
+
+php artisan test --compact                       # run full suite
+php artisan test --compact --filter=testName      # run a single test
+```
+
+Formatting: run `vendor/bin/pint --dirty --format agent` after editing PHP files (per Boost guidelines below) rather than the full `composer lint`.
+
+## Architecture
+
+- PSR-4: `App\` → `app/`, `Database\Factories\` → `database/factories/`, `Database\Seeders\` → `database/seeders/`.
+- Database: SQLite (`database/database.sqlite`) by default; only the default `users`, `cache`, `jobs` migrations exist.
+- Frontend: Tailwind CSS v4 via `@tailwindcss/vite`, bundled with Vite. No JS framework beyond Livewire/Alpine.
+- Testing: Pest v4 (PHPUnit under the hood), suites split into `tests/Unit` and `tests/Feature` per `phpunit.xml`.
+- Static analysis: Larastan (PHPStan) at level 7, scoped to `app/`, `bootstrap/app.php`, `config/`, `database/`, `routes/`.
+- MCP: `laravel-boost` server is configured in `.mcp.json` / `opencode.json`, launched via `wsl.exe /usr/bin/php8.4 artisan boost:mcp`. Prefer its tools (see Boost guidelines below).
+- CI (`.github/workflows/`): `tests.yml` runs the matrix (PHP 8.3/8.4/8.5) build + `composer types:check` + `php artisan test` on push/PR to `develop`, `main`, `master`, `workos`; `lint.yml` runs `composer lint`. Both install Flux UI credentials from `FLUX_USERNAME`/`FLUX_LICENSE_KEY` secrets even though Flux isn't currently a dependency — likely staged for future use.
+
+---
+
 <laravel-boost-guidelines>
 === foundation rules ===
 
