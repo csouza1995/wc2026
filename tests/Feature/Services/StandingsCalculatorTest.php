@@ -54,7 +54,7 @@ test('ranks teams by points, then goal difference, then goals scored', function 
         ->and($argentinaRow->played)->toBe(2);
 });
 
-test('last five results are most-recent-first across all rounds', function () {
+test('recent results are most-recent-first across all rounds', function () {
     $group = Group::factory()->create();
     [$brazil, $argentina] = Team::factory()->count(2)->create();
     $group->teams()->attach([$brazil->id, $argentina->id]);
@@ -82,5 +82,28 @@ test('last five results are most-recent-first across all rounds', function () {
     $standings = app(StandingsCalculator::class)->forGroup($group->fresh(['teams']));
 
     $brazilRow = $standings->firstWhere('team.id', $brazil->id);
-    expect($brazilRow->lastFive)->toBe(['D', 'L']);
+    expect($brazilRow->results)->toBe(['D', 'L']);
+});
+
+test('only the 3 most recent results are kept', function () {
+    $group = Group::factory()->create();
+    [$brazil, $argentina] = Team::factory()->count(2)->create();
+    $group->teams()->attach([$brazil->id, $argentina->id]);
+
+    foreach ([4, 3, 2, 1] as $daysAgo) {
+        Fixture::factory()->create([
+            'group_id' => $group->id,
+            'home_team_id' => $brazil->id,
+            'away_team_id' => $argentina->id,
+            'status' => FixtureStatus::Finished,
+            'home_score' => 1,
+            'away_score' => 0,
+            'kickoff_at' => now()->subDays($daysAgo),
+        ]);
+    }
+
+    $standings = app(StandingsCalculator::class)->forGroup($group->fresh(['teams']));
+
+    $brazilRow = $standings->firstWhere('team.id', $brazil->id);
+    expect($brazilRow->results)->toHaveCount(3);
 });

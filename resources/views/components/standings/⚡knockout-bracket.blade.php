@@ -4,6 +4,7 @@ use App\Enums\FixtureRound;
 use App\Enums\FixtureStatus;
 use App\Models\Fixture;
 use App\Services\Bracket\CircularBracketLayout;
+use Illuminate\Support\Js;
 use Livewire\Attributes\Computed;
 use Livewire\Component;
 
@@ -27,6 +28,7 @@ new class extends Component
             $this->fixturesForRound(FixtureRound::RoundOf16),
             $this->fixturesForRound(FixtureRound::QuarterFinal),
             $this->fixturesForRound(FixtureRound::SemiFinal),
+            $this->fixturesForRound(FixtureRound::Final),
             centerX: 400,
             centerY: 400,
             leafRadius: 340,
@@ -37,6 +39,57 @@ new class extends Component
     public function hasLiveFixtures(): bool
     {
         return Fixture::where('status', FixtureStatus::Live)->exists();
+    }
+
+    /**
+     * One hover-tooltip payload per connector, in the same order as
+     * bracket()['connectors'] — embedded client-side so hovering doesn't
+     * need a Livewire round-trip.
+     */
+    public function connectorTooltips(): string
+    {
+        $payloads = collect($this->bracket['connectors'] ?? [])
+            ->map(fn (array $connector) => $this->connectorData($connector['fixture']))
+            ->all();
+
+        return Js::from($payloads);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function connectorData(?Fixture $fixture): array
+    {
+        if (! $fixture) {
+            return [
+                'known' => false,
+                'home' => null, 'away' => null, 'homeFlag' => null, 'awayFlag' => null,
+                'when' => null, 'status' => null, 'homeScore' => null, 'awayScore' => null,
+            ];
+        }
+
+        $hasScore = in_array($fixture->status, [FixtureStatus::Finished, FixtureStatus::Live], true);
+
+        // Penalty shootout scores flank the regular-time score in
+        // parentheses, e.g. "(4) 2" and "2 (5)" either side of the "x".
+        $homeScore = $hasScore
+            ? ($fixture->home_pens !== null ? "({$fixture->home_pens}) {$fixture->home_score}" : (string) $fixture->home_score)
+            : null;
+        $awayScore = $hasScore
+            ? ($fixture->away_pens !== null ? "{$fixture->away_score} ({$fixture->away_pens})" : (string) $fixture->away_score)
+            : null;
+
+        return [
+            'known' => true,
+            'home' => $fixture->homeTeam?->name ?? $fixture->home_placeholder ?? 'A definir',
+            'away' => $fixture->awayTeam?->name ?? $fixture->away_placeholder ?? 'A definir',
+            'homeFlag' => $fixture->homeTeam?->flag_url,
+            'awayFlag' => $fixture->awayTeam?->flag_url,
+            'when' => $fixture->kickoff_at->translatedFormat('d M, H:i'),
+            'status' => $fixture->status->value,
+            'homeScore' => $homeScore,
+            'awayScore' => $awayScore,
+        ];
     }
 
     private function fixturesForRound(FixtureRound $round)
@@ -61,6 +114,7 @@ new class extends Component
             Chaveamento ainda não disponível — aguardando o fim da fase de grupos e a rodada de 32 ser definida.
         </p>
     @else
+        <div class="relative" x-data="{ hovered: null, tooltip: { x: 0, y: 0 }, labels: {{ $this->connectorTooltips() }} }">
         <svg viewBox="0 0 800 800" class="mx-auto w-full max-w-225">
             <defs>
                 <radialGradient id="glow" cx="50%" cy="50%" r="50%">
@@ -86,14 +140,23 @@ new class extends Component
                     $sideA = $highlight($connector['winningSide'] === 'a');
                     $sideB = $highlight($connector['winningSide'] === 'b');
                 @endphp
-                <path wire:key="arc-a-{{ $loop->index }}" d="{{ $connector['arcA'] }}" fill="none" stroke-linecap="round"
-                    stroke="{{ $sideA['stroke'] }}" stroke-opacity="{{ $sideA['opacity'] }}" stroke-width="{{ $sideA['width'] }}" />
-                <path wire:key="arc-b-{{ $loop->index }}" d="{{ $connector['arcB'] }}" fill="none" stroke-linecap="round"
-                    stroke="{{ $sideB['stroke'] }}" stroke-opacity="{{ $sideB['opacity'] }}" stroke-width="{{ $sideB['width'] }}" />
-                <path wire:key="line-a-{{ $loop->index }}" d="{{ $connector['lineA'] }}" fill="none" stroke-linecap="round"
-                    stroke="{{ $sideA['stroke'] }}" stroke-opacity="{{ $sideA['opacity'] }}" stroke-width="{{ $sideA['width'] }}" />
-                <path wire:key="line-b-{{ $loop->index }}" d="{{ $connector['lineB'] }}" fill="none" stroke-linecap="round"
-                    stroke="{{ $sideB['stroke'] }}" stroke-opacity="{{ $sideB['opacity'] }}" stroke-width="{{ $sideB['width'] }}" />
+                <g wire:key="connector-{{ $loop->index }}"
+                    @mouseenter="hovered = {{ $loop->index }}; const r = $el.getBoundingClientRect(), c = $root.getBoundingClientRect(); tooltip = { x: r.left - c.left + r.width / 2, y: r.top - c.top }"
+                    @mouseleave="hovered = null"
+                    :style="hovered === {{ $loop->index }} ? 'filter: drop-shadow(0 0 6px rgba(255,255,255,0.9))' : ''">
+                    <path d="{{ $connector['arcA'] }}" fill="none" stroke-linecap="round"
+                        stroke="{{ $sideA['stroke'] }}" stroke-opacity="{{ $sideA['opacity'] }}" stroke-width="{{ $sideA['width'] }}" />
+                    <path d="{{ $connector['arcB'] }}" fill="none" stroke-linecap="round"
+                        stroke="{{ $sideB['stroke'] }}" stroke-opacity="{{ $sideB['opacity'] }}" stroke-width="{{ $sideB['width'] }}" />
+                    <path d="{{ $connector['lineA'] }}" fill="none" stroke-linecap="round"
+                        stroke="{{ $sideA['stroke'] }}" stroke-opacity="{{ $sideA['opacity'] }}" stroke-width="{{ $sideA['width'] }}" />
+                    <path d="{{ $connector['lineB'] }}" fill="none" stroke-linecap="round"
+                        stroke="{{ $sideB['stroke'] }}" stroke-opacity="{{ $sideB['opacity'] }}" stroke-width="{{ $sideB['width'] }}" />
+                    {{-- The whole wedge is the hover target — a soft, barely-there fill
+                    on hover instead of only the thin line reacting. --}}
+                    <path d="{{ $connector['zone'] }}" pointer-events="fill"
+                        :fill="hovered === {{ $loop->index }} ? 'rgba(255,255,255,0.05)' : 'transparent'" />
+                </g>
             @endforeach
 
             {{-- Trophy, hand-drawn in SVG (no external image / trademarked photo). --}}
@@ -129,6 +192,43 @@ new class extends Component
                 </g>
             @endforeach
         </svg>
+
+        <div x-show="hovered !== null" x-cloak
+            class="pointer-events-none absolute z-20 w-72 -translate-x-1/2 -translate-y-full rounded-xl border border-white/10 bg-slate-950/95 p-3 text-white shadow-2xl backdrop-blur-sm"
+            :style="`left: ${tooltip.x}px; top: ${tooltip.y - 14}px;`">
+            <template x-if="hovered !== null">
+                <div>
+                    <template x-if="labels[hovered].known">
+                        <div>
+                            <div class="flex items-center justify-between gap-1.5">
+                                <div class="flex min-w-0 flex-1 items-center gap-1.5">
+                                    <img :src="labels[hovered].homeFlag" x-show="labels[hovered].homeFlag"
+                                        class="h-5 w-5 shrink-0 rounded-full border border-slate-600 object-cover" />
+                                    <span class="truncate text-xs font-medium" x-text="labels[hovered].home"></span>
+                                </div>
+                                <div class="flex shrink-0 items-center gap-1 text-sm font-bold"
+                                    :class="labels[hovered].status === 'live' ? 'text-emerald-400' : 'text-white'">
+                                    <span x-show="labels[hovered].homeScore" x-text="labels[hovered].homeScore"></span>
+                                    <span class="text-[10px] font-normal text-slate-500">×</span>
+                                    <span x-show="labels[hovered].awayScore" x-text="labels[hovered].awayScore"></span>
+                                </div>
+                                <div class="flex min-w-0 flex-1 items-center justify-end gap-1.5">
+                                    <span class="truncate text-right text-xs font-medium" x-text="labels[hovered].away"></span>
+                                    <img :src="labels[hovered].awayFlag" x-show="labels[hovered].awayFlag"
+                                        class="h-5 w-5 shrink-0 rounded-full border border-slate-600 object-cover" />
+                                </div>
+                            </div>
+                            <div class="mt-2.5 border-t border-white/10 pt-2.5 text-center text-[11px] text-slate-400"
+                                x-text="labels[hovered].when"></div>
+                        </div>
+                    </template>
+                    <template x-if="!labels[hovered].known">
+                        <p class="text-center text-xs text-slate-400">Confronto ainda não definido</p>
+                    </template>
+                </div>
+            </template>
+        </div>
+        </div>
 
         <p class="mt-8 text-center text-xs text-slate-500">
             Design inspirado em <a href="https://www.instagram.com/emiliosansolini/" target="_blank" rel="noopener"

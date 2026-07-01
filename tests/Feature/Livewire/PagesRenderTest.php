@@ -42,3 +42,28 @@ test('knockout bracket renders the circular svg once all 16 round-of-32 fixtures
         ->assertDontSee('Chaveamento ainda não disponível')
         ->assertSee('<svg', false);
 });
+
+test('jogos filter narrows the list down to fixtures involving the selected teams', function () {
+    [$brazil, $argentina, $france] = Team::factory()->count(3)->create();
+
+    $brazilVsFrance = Fixture::factory()->create(['home_team_id' => $brazil->id, 'away_team_id' => $france->id]);
+    Fixture::factory()->create(['home_team_id' => $argentina->id, 'away_team_id' => $france->id]);
+
+    Livewire::test('pages::jogos')
+        ->assertSee($brazil->name)
+        ->call('toggleTeam', $brazil->id)
+        ->assertSet('selectedTeamIds', [$brazil->id])
+        ->assertSee($brazilVsFrance->homeTeam->name);
+});
+
+test('jogos filter caps selection at 3 teams', function () {
+    $teams = Team::factory()->count(4)->create();
+
+    $component = Livewire::test('pages::jogos');
+
+    foreach ($teams as $team) {
+        $component->call('toggleTeam', $team->id);
+    }
+
+    $component->assertSet('selectedTeamIds', $teams->take(3)->pluck('id')->all());
+});

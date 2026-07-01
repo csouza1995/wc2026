@@ -31,10 +31,10 @@ function emptyRound(): Collection
     return collect();
 }
 
-function buildLayout(Collection $ro32, Collection $ro16 = new Collection, Collection $qf = new Collection, Collection $sf = new Collection): array
+function buildLayout(Collection $ro32, Collection $ro16 = new Collection, Collection $qf = new Collection, Collection $sf = new Collection, Collection $final = new Collection): array
 {
     return app(CircularBracketLayout::class)->build(
-        $ro32, $ro16, $qf, $sf,
+        $ro32, $ro16, $qf, $sf, $final,
         centerX: 400, centerY: 400, leafRadius: 340,
     );
 }
@@ -57,6 +57,10 @@ test('always draws the full 31-connector tree, decided or not', function () {
             ->and($connector['arcB'])->toContain('A ')
             ->and($connector['winningSide'])->toBeNull();
     }
+
+    // Every RO32 junction always has its own real fixture attached (used
+    // for the hover tooltip), even before it's been played.
+    expect($layout['connectors'][0]['fixture'])->toBeInstanceOf(Fixture::class);
 });
 
 test('the final connects straight to the trophy with no extra ring', function () {

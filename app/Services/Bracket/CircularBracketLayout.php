@@ -38,6 +38,7 @@ class CircularBracketLayout
      * @param  Collection<int, Fixture>  $ro16Fixtures  Up to 8 fixtures.
      * @param  Collection<int, Fixture>  $qfFixtures  Up to 4 fixtures.
      * @param  Collection<int, Fixture>  $sfFixtures  Up to 2 fixtures.
+     * @param  Collection<int, Fixture>  $finalFixtures  Up to 1 fixture.
      * @return array{leaves: array<int, array<string, mixed>>, nodes: array<int, array<string, mixed>>, connectors: array<int, array<string, mixed>>}
      */
     public function build(
@@ -45,6 +46,7 @@ class CircularBracketLayout
         Collection $ro16Fixtures,
         Collection $qfFixtures,
         Collection $sfFixtures,
+        Collection $finalFixtures,
         float $centerX,
         float $centerY,
         float $leafRadius,
@@ -85,7 +87,7 @@ class CircularBracketLayout
             $midAngle = ($angleA + $angleB) / 2;
             $winner = $fixture->winner();
 
-            $connectors[] = $this->connector($centerX, $centerY, $leafRadius, $ringRadii[0], $angleA, $angleB, $this->winningSide($winner, $fixture->homeTeam, $fixture->awayTeam), $winner);
+            $connectors[] = $this->connector($centerX, $centerY, $leafRadius, $ringRadii[0], $angleA, $angleB, $this->winningSide($winner, $fixture->homeTeam, $fixture->awayTeam), $winner, $fixture);
 
             if ($winner) {
                 $nodes[] = [...$this->cartesian($centerX, $centerY, $ringRadii[0], $midAngle), 'team' => $winner, 'eliminated' => isset($eliminated[$winner->id])];
@@ -110,9 +112,10 @@ class CircularBracketLayout
                 $b = $current[$keys[$i + 1]];
                 $midAngle = ($a['angle'] + $b['angle']) / 2;
 
-                $winner = $this->realWinner($roundFixtures, $a['team'], $b['team']);
+                $matchedFixture = $this->realFixture($roundFixtures, $a['team'], $b['team']);
+                $winner = $matchedFixture?->winner();
 
-                $connectors[] = $this->connector($centerX, $centerY, $outerR, $innerR, $a['angle'], $b['angle'], $this->winningSide($winner, $a['team'], $b['team']), $winner);
+                $connectors[] = $this->connector($centerX, $centerY, $outerR, $innerR, $a['angle'], $b['angle'], $this->winningSide($winner, $a['team'], $b['team']), $winner, $matchedFixture);
 
                 if ($winner) {
                     $nodes[] = [...$this->cartesian($centerX, $centerY, $innerR, $midAngle), 'team' => $winner, 'eliminated' => isset($eliminated[$winner->id])];
@@ -128,7 +131,10 @@ class CircularBracketLayout
         $remaining = array_values($current);
 
         if (count($remaining) === 2) {
-            $connectors[] = $this->connector($centerX, $centerY, $ringRadii[3], 0, $remaining[0]['angle'], $remaining[1]['angle'], null, null);
+            $finalFixture = $this->realFixture($finalFixtures, $remaining[0]['team'], $remaining[1]['team']);
+            $finalWinner = $finalFixture?->winner();
+
+            $connectors[] = $this->connector($centerX, $centerY, $ringRadii[3], 0, $remaining[0]['angle'], $remaining[1]['angle'], $this->winningSide($finalWinner, $remaining[0]['team'], $remaining[1]['team']), $finalWinner, $finalFixture);
         }
 
         return ['leaves' => $leaves, 'nodes' => $nodes, 'connectors' => $connectors];
@@ -181,23 +187,23 @@ class CircularBracketLayout
     }
 
     /**
-     * The real fixture (in this round) between two known teams, if any,
-     * and its winner — only meaningful once both feeders are decided.
+     * The real fixture (in this round) between two known teams, if any —
+     * only findable once both feeders are decided. Used both for its
+     * winner (to keep cascading the bracket) and, regardless of whether
+     * it's finished yet, to show its kickoff time/score on hover.
      *
      * @param  Collection<int, Fixture>  $roundFixtures
      */
-    private function realWinner(Collection $roundFixtures, ?Team $teamA, ?Team $teamB): ?Team
+    private function realFixture(Collection $roundFixtures, ?Team $teamA, ?Team $teamB): ?Fixture
     {
         if (! $teamA || ! $teamB) {
             return null;
         }
 
-        $fixture = $roundFixtures->first(
+        return $roundFixtures->first(
             fn (Fixture $f) => in_array($f->home_team_id, [$teamA->id, $teamB->id], true)
                 && in_array($f->away_team_id, [$teamA->id, $teamB->id], true),
         );
-
-        return $fixture?->winner();
     }
 
     /**
@@ -211,9 +217,9 @@ class CircularBracketLayout
      * both "inner" points collapse onto the center, so the arcs
      * disappear and the two lines simply meet at the trophy.
      *
-     * @return array{lineA: string, lineB: string, arcA: string, arcB: string, winningSide: ?string, winningColor: string}
+     * @return array{lineA: string, lineB: string, arcA: string, arcB: string, zone: string, winningSide: ?string, winningColor: string, fixture: ?Fixture}
      */
-    private function connector(float $centerX, float $centerY, float $outerRadius, float $innerRadius, float $angleA, float $angleB, ?string $winningSide, ?Team $winner): array
+    private function connector(float $centerX, float $centerY, float $outerRadius, float $innerRadius, float $angleA, float $angleB, ?string $winningSide, ?Team $winner, ?Fixture $fixture): array
     {
         $outerA = $this->cartesian($centerX, $centerY, $outerRadius, $angleA);
         $outerB = $this->cartesian($centerX, $centerY, $outerRadius, $angleB);
@@ -226,9 +232,52 @@ class CircularBracketLayout
             'lineB' => sprintf('M %F %F L %F %F', $outerB['x'], $outerB['y'], $innerB['x'], $innerB['y']),
             'arcA' => sprintf('M %F %F A %F %F 0 0 1 %F %F', $innerA['x'], $innerA['y'], $innerRadius, $innerRadius, $innerMid['x'], $innerMid['y']),
             'arcB' => sprintf('M %F %F A %F %F 0 0 1 %F %F', $innerMid['x'], $innerMid['y'], $innerRadius, $innerRadius, $innerB['x'], $innerB['y']),
+            'zone' => $this->zonePath($centerX, $centerY, $outerRadius, $innerRadius, $angleA, $angleB),
             'winningSide' => $winningSide,
             'winningColor' => TeamColors::for($winner),
+            'fixture' => $fixture,
         ];
+    }
+
+    /**
+     * The whole wedge (annular sector) this match occupies — used as a
+     * generous hover target and a subtle highlight fill, instead of only
+     * the thin connector line itself. Padded outward a bit past the
+     * leaf/node flags, and angularly out toward the neighboring wedge on
+     * either side — almost touching it, just a sliver of a gap left —
+     * but the inner edge stops exactly at this ring's own radius rather
+     * than reaching past it into the next ring's wedge.
+     *
+     * The angular pad is a fraction of the wedge's own span rather than a
+     * fixed number of degrees: thanks to the uniform binary halving that
+     * builds every ring, a wedge's own span and its gap to the next
+     * wedge *at that same ring* are always equal, at every ring — so a
+     * fixed fraction scales correctly everywhere without knowing the
+     * ring's absolute angular width. The Final's connector has no
+     * neighbor to reach toward (span is exactly half the circle), so it
+     * gets no angular padding at all.
+     */
+    private function zonePath(float $centerX, float $centerY, float $outerRadius, float $innerRadius, float $angleA, float $angleB): string
+    {
+        $span = $angleB - $angleA;
+        $angularPad = $span < M_PI ? $span * 0.45 : 0.0;
+        $paddedA = $angleA - $angularPad;
+        $paddedB = $angleB + $angularPad;
+        $largeArc = ($paddedB - $paddedA) > M_PI ? 1 : 0;
+
+        $outerPad = $outerRadius + 22;
+        $innerPad = $innerRadius;
+
+        $outerA = $this->cartesian($centerX, $centerY, $outerPad, $paddedA);
+        $outerB = $this->cartesian($centerX, $centerY, $outerPad, $paddedB);
+        $innerA = $this->cartesian($centerX, $centerY, $innerPad, $paddedA);
+        $innerB = $this->cartesian($centerX, $centerY, $innerPad, $paddedB);
+
+        return sprintf(
+            'M %F %F A %F %F 0 %d 1 %F %F L %F %F A %F %F 0 %d 0 %F %F Z',
+            $outerA['x'], $outerA['y'], $outerPad, $outerPad, $largeArc, $outerB['x'], $outerB['y'],
+            $innerB['x'], $innerB['y'], $innerPad, $innerPad, $largeArc, $innerA['x'], $innerA['y'],
+        );
     }
 
     /**

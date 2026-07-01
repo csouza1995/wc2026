@@ -47,7 +47,7 @@ new class extends Component
                         <th class="px-2 py-2">GM</th>
                         <th class="px-2 py-2">GC</th>
                         <th class="px-2 py-2">SG</th>
-                        <th class="px-4 py-2 text-left">Últimas 5</th>
+                        <th class="px-4 py-2 text-left">Resultados</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -67,7 +67,7 @@ new class extends Component
                             <td class="px-2 py-2 text-center text-slate-300">{{ $row->goalDifference() }}</td>
                             <td class="px-4 py-2">
                                 <div class="flex gap-1">
-                                    @foreach ($row->lastFive as $result)
+                                    @foreach ($row->results as $result)
                                         <span wire:key="form-{{ $row->team->id }}-{{ $loop->index }}"
                                             class="h-4 w-4 rounded-full {{ match ($result) {
                                                 'W' => 'bg-emerald-500',

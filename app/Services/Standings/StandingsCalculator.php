@@ -71,20 +71,20 @@ class StandingsCalculator
             lost: $lost,
             goalsFor: $goalsFor,
             goalsAgainst: $goalsAgainst,
-            lastFive: $this->lastFive($team),
+            results: $this->recentResults($team),
         );
     }
 
     /**
      * @return array<int, 'W'|'D'|'L'>
      */
-    private function lastFive(Team $team): array
+    private function recentResults(Team $team): array
     {
         return Fixture::query()
             ->where('status', FixtureStatus::Finished)
             ->where(fn ($query) => $query->where('home_team_id', $team->id)->orWhere('away_team_id', $team->id))
             ->orderByDesc('kickoff_at')
-            ->limit(5)
+            ->limit(3)
             ->get()
             ->map(function (Fixture $fixture) use ($team) {
                 $isHome = $fixture->home_team_id === $team->id;

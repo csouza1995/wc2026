@@ -7,7 +7,7 @@ use App\Models\Team;
 class StandingRow
 {
     /**
-     * @param  array<int, 'W'|'D'|'L'>  $lastFive  Most recent result first.
+     * @param  array<int, 'W'|'D'|'L'>  $results  Most recent result first.
      */
     public function __construct(
         public readonly Team $team,
@@ -17,7 +17,7 @@ class StandingRow
         public readonly int $lost,
         public readonly int $goalsFor,
         public readonly int $goalsAgainst,
-        public readonly array $lastFive,
+        public readonly array $results,
     ) {}
 
     public function points(): int
