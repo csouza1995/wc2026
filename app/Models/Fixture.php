@@ -6,12 +6,12 @@ use App\Enums\DataSource;
 use App\Enums\FixtureRound;
 use App\Enums\FixtureStatus;
 use App\Enums\MatchPeriod;
+use Carbon\CarbonImmutable;
 use Database\Factories\FixtureFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Support\Carbon;
 
 /**
  * @property int $id
@@ -22,7 +22,7 @@ use Illuminate\Support\Carbon;
  * @property int|null $away_team_id
  * @property string|null $home_placeholder
  * @property string|null $away_placeholder
- * @property Carbon $kickoff_at
+ * @property CarbonImmutable $kickoff_at
  * @property string|null $venue
  * @property FixtureStatus $status
  * @property int|null $home_score
@@ -35,7 +35,7 @@ use Illuminate\Support\Carbon;
  * @property MatchPeriod|null $period
  * @property string|null $external_id_football_data
  * @property string|null $external_id_api_football
- * @property Carbon|null $last_polled_at
+ * @property CarbonImmutable|null $last_polled_at
  * @property DataSource|null $last_polled_source
  */
 #[Fillable([
@@ -93,6 +93,15 @@ class Fixture extends Model
     public function isLive(): bool
     {
         return $this->status === FixtureStatus::Live;
+    }
+
+    /**
+     * Kickoff time converted from UTC (storage) to the app's display
+     * timezone, for anything shown to users (formatting, day grouping).
+     */
+    public function kickoffAtLocal(): CarbonImmutable
+    {
+        return $this->kickoff_at->setTimezone(config('app.display_timezone'));
     }
 
     /**

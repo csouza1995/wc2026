@@ -69,6 +69,19 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Display Timezone
+    |--------------------------------------------------------------------------
+    |
+    | Everything is stored in UTC (see above). This is the timezone matches
+    | are shown in and "today" is calculated against for the user-facing
+    | pages — Brazil / São Paulo (UTC-3) for this tournament tracker.
+    |
+    */
+
+    'display_timezone' => env('DISPLAY_TIMEZONE', 'America/Sao_Paulo'),
+
+    /*
+    |--------------------------------------------------------------------------
     | Application Locale Configuration
     |--------------------------------------------------------------------------
     |

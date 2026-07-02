@@ -13,7 +13,6 @@ use App\Services\Football\LiveScoreBudget;
 use Illuminate\Console\Attributes\Description;
 use Illuminate\Console\Attributes\Signature;
 use Illuminate\Console\Command;
-use Illuminate\Support\Carbon;
 use Throwable;
 
 #[Signature('matches:watch-live')]
@@ -61,7 +60,7 @@ class WatchLiveMatches extends Command
             $raw = $client->match($fixture->external_id_football_data);
 
             $fixture->fill(FootballDataMatchMapper::toFixtureAttributes($raw));
-            $fixture->last_polled_at = Carbon::now();
+            $fixture->last_polled_at = now();
             $fixture->last_polled_source = DataSource::FootballData;
             $fixture->save();
         } catch (Throwable $e) {
@@ -79,7 +78,7 @@ class WatchLiveMatches extends Command
             }
 
             $fixture->fill(ApiFootballFixtureMapper::toLiveAttributes($raw));
-            $fixture->last_polled_at = Carbon::now();
+            $fixture->last_polled_at = now();
             $fixture->last_polled_source = DataSource::ApiFootball;
             $fixture->save();
 

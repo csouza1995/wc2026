@@ -78,7 +78,7 @@ new class extends Component {
             'away' => $fixture->awayTeam?->name ?? ($fixture->away_placeholder ?? 'A definir'),
             'homeFlag' => $fixture->homeTeam?->flag_url,
             'awayFlag' => $fixture->awayTeam?->flag_url,
-            'when' => $fixture->kickoff_at->translatedFormat('d M, H:i'),
+            'when' => $fixture->kickoffAtLocal()->translatedFormat('d M, H:i'),
             'status' => $fixture->status->value,
             'homeScore' => $homeScore,
             'awayScore' => $awayScore,

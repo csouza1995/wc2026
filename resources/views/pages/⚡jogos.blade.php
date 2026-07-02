@@ -92,10 +92,13 @@ new class extends Component
                 ),
             )
             ->when($this->onlyLive, fn ($query) => $query->where('status', FixtureStatus::Live))
-            ->when($this->onlyToday, fn ($query) => $query->whereDate('kickoff_at', today()))
+            ->when($this->onlyToday, fn ($query) => $query->whereBetween('kickoff_at', [
+                now(config('app.display_timezone'))->startOfDay()->utc(),
+                now(config('app.display_timezone'))->endOfDay()->utc(),
+            ]))
             ->orderBy('kickoff_at')
             ->get()
-            ->groupBy(fn (Fixture $fixture) => $fixture->kickoff_at->toDateString());
+            ->groupBy(fn (Fixture $fixture) => $fixture->kickoffAtLocal()->toDateString());
     }
 
     #[Computed]
@@ -167,7 +170,7 @@ new class extends Component
                                     Ao vivo{{ $fixture->minute ? " · {$fixture->minute}'" : '' }}
                                 </span>
                             @else
-                                <span class="text-sm text-slate-400">{{ $fixture->kickoff_at->format('H:i') }}</span>
+                                <span class="text-sm text-slate-400">{{ $fixture->kickoffAtLocal()->format('H:i') }}</span>
                             @endif
                             <span class="text-[10px] text-slate-500">{{ $fixture->group?->name ? "Grupo {$fixture->group->name}" : $fixture->round->label() }}</span>
                         </div>
