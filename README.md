@@ -1,36 +1,36 @@
-# Copa do Mundo 2026
+# World Cup 2026
 
-Acompanhamento em tempo real da Copa do Mundo de 2026: jogos, placares ao vivo, classificação dos grupos e chaveamento mata-mata — construído com Laravel + Livewire.
+Real-time tracker for the 2026 FIFA World Cup: fixtures, live scores, group standings, and knockout bracket — built with Laravel + Livewire.
 
-## Créditos
+## Credits
 
-O design circular do chaveamento mata-mata (fase eliminatória) é inspirado no trabalho de **[@emiliosansolini](https://www.instagram.com/emiliosansolini/)**. Todo o crédito da peça visual original é dele.
+The circular knockout bracket design is inspired by the work of **[@emiliosansolini](https://www.instagram.com/emiliosansolini/)**. All credit for the original visual piece goes to him.
 
-## Funcionalidades
+## Features
 
-- **Jogos**: lista de partidas agrupadas por dia, com filtro por seleção (até 3), por jogos ao vivo e por "hoje". Placar e minuto atualizam sozinhos via polling enquanto houver jogo ao vivo.
-- **Classificação**: tabela dos grupos calculada a partir dos resultados (pontos, saldo de gols, critérios de desempate).
-- **Chaveamento**: bracket circular da fase eliminatória (32 → 16 → 8 → 4 → 2 → campeão), com cores por seleção e indicação de times eliminados.
-- Datas e horários são armazenados em UTC no banco e convertidos para o horário de São Paulo (UTC-3) em toda a interface e nas consultas de "jogos de hoje".
-- Dados importados e sincronizados a partir de [football-data.org](https://www.football-data.org/) (fonte principal) e [API-Football](https://www.api-football.com/) (reforço em janelas críticas de jogos ao vivo, respeitando uma cota diária configurável).
+- **Fixtures**: matches grouped by day, with filters by team (up to 3), live matches, and "today". Score and minute auto-update via polling while a match is live.
+- **Standings**: group tables calculated from results (points, goal difference, tiebreakers).
+- **Bracket**: circular knockout bracket (32 → 16 → 8 → 4 → 2 → champion), with team colors and eliminated-team indicators.
+- Dates and times are stored in UTC in the database and converted to São Paulo time (UTC-3) throughout the UI and in "today's matches" queries.
+- Data is imported and synced from [football-data.org](https://www.football-data.org/) (primary source) and [API-Football](https://www.api-football.com/) (extra polling during critical windows of live matches, within a configurable daily quota).
 
-## Requisitos
+## Requirements
 
 - PHP 8.4+
 - Composer
 - Node.js + npm
-- SQLite (padrão) ou outro banco suportado pelo Laravel
-- [Laravel Sail](https://laravel.com/docs/sail) (opcional, requer Docker) para rodar em container
+- SQLite (default) or another Laravel-supported database
+- [Laravel Sail](https://laravel.com/docs/sail) (optional, requires Docker) to run in a container
 
-## Instalação e setup
+## Installation and setup
 
-Clone o repositório e instale as dependências:
+Clone the repository and install dependencies:
 
 ```bash
 composer setup
 ```
 
-Esse comando faz tudo de uma vez: instala dependências PHP e JS, cria o `.env`, gera a `APP_KEY`, roda as migrations e builda os assets. Equivalente a rodar manualmente:
+This does everything in one go: installs PHP and JS dependencies, creates the `.env` file, generates the `APP_KEY`, runs migrations, and builds assets. Equivalent to running manually:
 
 ```bash
 composer install
@@ -41,9 +41,9 @@ npm install
 npm run build
 ```
 
-### Chaves de API
+### API keys
 
-Para importar e sincronizar os jogos, configure no `.env`:
+To import and sync matches, set these in `.env`:
 
 ```env
 API_FOOTBALL_URL=https://v3.football.api-sports.io
@@ -55,45 +55,45 @@ FOOTBALL_DATA_ORG_API_KEY=
 FOOTBALL_DATA_ORG_COMPETITION_CODE=WC
 ```
 
-### Importar os dados do torneio
+### Importing tournament data
 
 ```bash
-php artisan fixtures:import              # importa seleções, grupos e tabela de jogos
-php artisan fixtures:link-api-football   # cruza os IDs do API-Football com os jogos importados
+php artisan fixtures:import              # imports teams, groups, and the full fixture list
+php artisan fixtures:link-api-football   # cross-references API-Football ids onto the imported fixtures
 ```
 
-## Rodando o projeto
+## Running the project
 
-Com Sail:
+With Sail:
 
 ```bash
 sail up -d
 sail composer dev
 ```
 
-Sem Sail:
+Without Sail:
 
 ```bash
-composer dev   # sobe servidor, queue e Vite juntos (via `php artisan dev`)
+composer dev   # runs server, queue, and Vite together (via `php artisan dev`)
 ```
 
-A aplicação fica disponível em `http://localhost` (ou na porta configurada em `APP_URL`).
+The application is available at `http://localhost` (or the port configured in `APP_URL`).
 
-### Acompanhar jogos ao vivo
+### Tracking live matches
 
-Para manter os placares atualizados, rode o comando de polling (a cada ~10s) enquanto houver partidas em andamento:
+To keep scores updated, run the polling command (every ~10s) while matches are in progress:
 
 ```bash
 php artisan matches:watch-live
 ```
 
-## Testes e qualidade
+## Tests and quality
 
 ```bash
-composer test          # config:clear + lint:check + types:check + testes
+composer test          # config:clear + lint:check + types:check + tests
 php artisan test --compact
-composer lint           # Pint (corrige estilo)
-composer types:check    # PHPStan (Larastan, nível 7)
+composer lint           # Pint (auto-fixes style)
+composer types:check    # PHPStan (Larastan, level 7)
 ```
 
 ## Stack
@@ -101,5 +101,5 @@ composer types:check    # PHPStan (Larastan, nível 7)
 - Laravel 13 + Livewire 4
 - Tailwind CSS v4 (via Vite)
 - SQLite
-- Pest 4 para testes
-- Larastan (PHPStan nível 7) para análise estática
+- Pest 4 for testing
+- Larastan (PHPStan level 7) for static analysis
