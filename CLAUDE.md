@@ -33,7 +33,7 @@ Formatting: run `vendor/bin/pint --dirty --format agent` after editing PHP files
 - Testing: Pest v4 (PHPUnit under the hood), suites split into `tests/Unit` and `tests/Feature` per `phpunit.xml`.
 - Static analysis: Larastan (PHPStan) at level 7, scoped to `app/`, `bootstrap/app.php`, `config/`, `database/`, `routes/`.
 - MCP: `laravel-boost` server is configured in `.mcp.json` / `opencode.json`, launched via `wsl.exe /usr/bin/php8.4 artisan boost:mcp`. Prefer its tools (see Boost guidelines below).
-- CI (`.github/workflows/`): `tests.yml` runs the matrix (PHP 8.3/8.4/8.5) build + `composer types:check` + `php artisan test` on push/PR to `develop`, `main`, `master`, `workos`; `lint.yml` runs `composer lint`. Both install Flux UI credentials from `FLUX_USERNAME`/`FLUX_LICENSE_KEY` secrets even though Flux isn't currently a dependency — likely staged for future use.
+- CI (`.github/workflows/`): `tests.yml` runs the matrix (PHP 8.4/8.5) build + `composer types:check` + `php artisan test` on push/PR to `develop`, `main`, `master`, `workos`; `lint.yml` runs `composer lint`. Both install Flux UI credentials from `FLUX_USERNAME`/`FLUX_LICENSE_KEY` secrets even though Flux isn't currently a dependency — likely staged for future use.
 
 ---
 
@@ -147,6 +147,13 @@ This project has domain-specific skills available in `**/skills/**`. You MUST ac
 # Deployment
 
 - Laravel can be deployed using [Laravel Cloud](https://cloud.laravel.com/), which is the fastest way to deploy and scale production Laravel applications.
+
+=== tests rules ===
+
+# Test Enforcement
+
+- Every change must be programmatically tested. Write a new test or update an existing test, then run the affected tests to make sure they pass.
+- Run the minimum number of tests needed to ensure code quality and speed. Use `php artisan test --compact` with a specific filename or filter.
 
 === laravel/core rules ===
 
