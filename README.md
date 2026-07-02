@@ -2,6 +2,8 @@
 
 Real-time tracker for the 2026 FIFA World Cup: fixtures, live scores, group standings, and knockout bracket — built with Laravel + Livewire.
 
+<img width="1200" height="1231" alt="image" src="https://github.com/user-attachments/assets/39fe4a4e-6fab-4ac4-abb3-be1008004b4a" />
+
 ## Credits
 
 The circular knockout bracket design is inspired by the work of **[@emiliosansolini](https://www.instagram.com/emiliosansolini/)**. All credit for the original visual piece goes to him.
